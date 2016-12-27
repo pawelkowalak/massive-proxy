@@ -7,13 +7,14 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 )
 
 var (
-	httpAddr  = flag.String("http", ":8080", "HTTP address")
+	httpAddr  = flag.String("http", ":80", "HTTP address")
 	httpsAddr = flag.String("https", ":443", "HTTPS address")
 	dev       = flag.Bool("dev", false, "Development mode")
 )
@@ -35,8 +36,8 @@ func (hs HostSwitch) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type Registry map[string]string
 
 var reg = Registry{
-	"www.homedroids.io":   "localhost:9091",
-	"www.spiffystyle.com": "localhost:9092",
+	"www.homedroids.io":      "localhost:9091",
+	"www.monkeypatching.com": "localhost:9092",
 }
 
 // Hosts returns slice of host names supported by Registry.
@@ -64,7 +65,7 @@ func newHostSwitch(reg Registry) HostSwitch {
 
 func main() {
 	flag.Parse()
-	log.Println("Starting")
+	log.Printf("Starting (dev=%t)", *dev)
 
 	client := &acme.Client{}
 	if *dev {
@@ -80,9 +81,28 @@ func main() {
 	}
 	hs := newHostSwitch(reg)
 	s := &http.Server{
-		Addr:      ":443",
-		Handler:   hs,
-		TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
+		Addr:         *httpsAddr,
+		Handler:      hs,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+		TLSConfig: &tls.Config{
+			PreferServerCipherSuites: true,
+			CurvePreferences: []tls.CurveID{
+				tls.CurveP256,
+				tls.X25519, // Go 1.8 only
+			},
+			MinVersion: tls.VersionTLS12,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, // Go 1.8 only
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,   // Go 1.8 only
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			},
+			GetCertificate: m.GetCertificate,
+		},
 	}
 	log.Fatal(s.ListenAndServeTLS("", ""))
 }
