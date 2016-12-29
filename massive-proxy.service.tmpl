@@ -1,0 +1,14 @@
+[Unit]
+Description=Massive Proxy
+After=docker.service
+
+[Service]
+User=core
+Restart=always
+RestartSec=5s
+TimeoutStartSec=0
+ExecStartPre=-/usr/bin/docker kill massive_proxy
+ExecStartPre=-/usr/bin/docker rm massive_proxy
+ExecStartPre=/usr/bin/docker load -i /home/core/massive_proxy_REV.tar
+ExecStart=/usr/bin/docker run --name massive_proxy -p 80:80 -p 443:443 -v /mnt/volume-fra1-01/certs:/certs viru/massive-proxy:REV
+ExecStop=/usr/bin/docker stop massive_proxy
