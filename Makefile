@@ -1,7 +1,7 @@
 REV = $(shell git describe --always)
 
 build:
-	GOOS=linux GOARCH=amd64 go1.8beta2 build
+	GOOS=linux GOARCH=amd64 go build
 	docker build -t viru/massive-proxy:$(REV) .
 	docker save -o massive_proxy_${REV}.tar viru/massive-proxy:$(REV)
 	rm massive-proxy
